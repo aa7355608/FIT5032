@@ -9,7 +9,7 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 
-/ restore session
+// restore session
 const auth = useAuthStore()
 auth.restore()
 
