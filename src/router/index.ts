@@ -5,6 +5,15 @@ import Register from '@/pages/Register.vue'
 import Dashboard from '@/pages/Dashboard.vue'
 import Admin from '@/pages/Admin.vue'
 import Reviews from '@/pages/Reviews.vue'
+
+
+import Mindfulness from '@/pages/Mindfulness.vue'
+import Resources from '@/pages/Resources.vue'
+import Community from '@/pages/Community.vue'
+import Profile from '@/pages/Profile.vue'
+import Help from '@/pages/Help.vue'
+import MoodTracker from '@/pages/MoodTracker.vue'
+
 import { useAuthStore } from '@/store/auth'
 
 declare module 'vue-router' {
@@ -19,16 +28,23 @@ const routes: RouteRecordRaw[] = [
   { path: '/', component: Home },
   { path: '/login', component: Login, meta: { guestOnly: true } },
   { path: '/register', component: Register, meta: { guestOnly: true } },
+
   { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user','admin'] } },
   { path: '/admin', component: Admin, meta: { requiresAuth: true, roles: ['admin'] } },
+
+  
+  { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/mindfulness', component: Mindfulness },
+  { path: '/resources', component: Resources },
+  { path: '/community', component: Community },
+  { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/help', component: Help },
+
   { path: '/reviews', component: Reviews },
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
@@ -41,4 +57,3 @@ router.beforeEach((to) => {
 })
 
 export default router
-
