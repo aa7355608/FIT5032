@@ -1,44 +1,41 @@
 import { defineStore } from 'pinia'
+import { auth as fbAuth } from '@/firebase/config'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 
 export type Role = 'user' | 'admin'
 export type User = { id: string; email: string; role: Role }
 type StoredUser = User & { password: string }
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    user: null as User | null,
-    token: '' as string
-  }),
+  state: () => ({ user: null as User | null, token: '' as string }),
   getters: { isAuthenticated: (s) => !!s.user && !!s.token },
   actions: {
-    register(email: string, password: string, role: Role = 'user') {
+    async register(email: string, password: string, role: Role = 'user') {
+      // Firebase primary
+      await createUserWithEmailAndPassword(fbAuth, email, password)
+      // Store role locally (simple demo mapping)
       const users: StoredUser[] = JSON.parse(localStorage.getItem('users') || '[]')
-      if (users.find(u => u.email === email)) throw new Error('Email already registered')
-      if (password.length < 8) throw new Error('Password too short')
-      users.push({ id: crypto.randomUUID(), email, password, role })
+      users.push({ id: email, email, password: '***', role })
       localStorage.setItem('users', JSON.stringify(users))
+      await this.login(email, password)
     },
-    login(email: string, password: string) {
+    async login(email: string, password: string) {
+      await signInWithEmailAndPassword(fbAuth, email, password)
+      // Look up role from local mapping (or Firestore in a real app)
       const users: StoredUser[] = JSON.parse(localStorage.getItem('users') || '[]')
-      const found = users.find(u => u.email === email && u.password === password)
-      if (!found) throw new Error('Invalid credentials')
-      this.user = { id: found.id, email: found.email, role: found.role }
-      this.token = 'demo-token'
+      const found = users.find(u => u.email === email) || { role: 'user' }
+      this.user = { id: email, email, role: found.role as Role }
+      this.token = 'firebase-session'
       sessionStorage.setItem('session', JSON.stringify({ user: this.user, token: this.token }))
     },
-    logout() {
-      this.user = null
-      this.token = ''
+    async logout() {
+      await signOut(fbAuth)
+      this.user = null; this.token = ''
       sessionStorage.removeItem('session')
     },
     restore() {
       const s = sessionStorage.getItem('session')
-      if (s) {
-        const { user, token } = JSON.parse(s)
-        this.user = user
-        this.token = token
-      }
+      if (s) { const { user, token } = JSON.parse(s); this.user = user; this.token = token }
     }
   }
 })
-

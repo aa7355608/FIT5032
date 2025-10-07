@@ -15,7 +15,9 @@ import Help from '@/pages/Help.vue'
 import MoodTracker from '@/pages/MoodTracker.vue'
 
 import { useAuthStore } from '@/store/auth'
-
+import EmailDemo from '@/pages/EmailDemo.vue'
+import AdminTables from '@/pages/AdminTables.vue'
+import MapPage from '@/pages/Map.vue'
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
@@ -31,6 +33,7 @@ const routes: RouteRecordRaw[] = [
 
   { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user','admin'] } },
   { path: '/admin', component: Admin, meta: { requiresAuth: true, roles: ['admin'] } },
+  { path: '/admin/tables', component: AdminTables, meta: { requiresAuth: true, roles: ['admin'] } },
 
   
   { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user','admin'] } },
@@ -42,6 +45,8 @@ const routes: RouteRecordRaw[] = [
 
   { path: '/reviews', component: Reviews },
   { path: '/:pathMatch(.*)*', redirect: '/' }
+  { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/map', component: MapPage },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

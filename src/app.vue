@@ -1,6 +1,9 @@
 <template>
   <div class="app">
     <NavBar />
+    <a href="#main" class="visually-hidden-focusable">Skip to content</a>
+<main id="main" class="container"> <!-- already present -->
+
     <main class="container">
       <router-view />
     </main>

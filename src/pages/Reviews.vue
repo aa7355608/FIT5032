@@ -38,6 +38,12 @@
         <p>{{ r.comment }}</p>
       </article>
     </div>
+    
+    <div class="row" style="gap:8px; margin-top:12px;">
+  <button class="btn secondary" @click="exportCsv">Export CSV</button>
+  <button class="btn secondary" @click="exportPdf">Export PDF</button>
+</div>
+
   </section>
 </template>
 
@@ -48,6 +54,29 @@ import { useReviewsStore } from '@/store/reviews'
 import { useAuthStore } from '@/store/auth'
 import StarRating from '@/components/StarRating.vue'
 import { ref } from 'vue'
+import { utils, writeFile } from 'xlsx'
+
+const exportCsv = () => {
+  const rows = reviews.items.map(r => ({
+    Title: r.title,
+    Rating: r.rating,
+    Comment: r.comment
+  }))
+  const wb = utils.book_new()
+  const ws = utils.json_to_sheet(rows)
+  utils.book_append_sheet(wb, ws, 'Reviews')
+  writeFile(wb, 'reviews.csv')
+}
+
+const exportPdf = async () => {
+  const { default: jsPDF } = await import('jspdf')
+  const pdf = new jsPDF()
+  pdf.text('Youth Wellbeing Reviews', 14, 16)
+  reviews.items.forEach((r, i) => {
+    pdf.text(`${i + 1}. ${r.title} — ${r.rating}★`, 14, 28 + i * 8)
+  })
+  pdf.save('reviews.pdf')
+}
 
 const reviews = useReviewsStore()
 const auth = useAuthStore()

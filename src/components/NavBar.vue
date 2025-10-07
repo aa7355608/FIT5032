@@ -9,10 +9,15 @@
     <router-link class="btn ghost" to="/community">Community</router-link>
     <router-link class="btn ghost" to="/reviews">Reviews</router-link>
     <router-link class="btn ghost" to="/help">Help</router-link>
+    <router-link class="btn ghost" to="/email">Email</router-link>
+    <router-link class="btn ghost" to="/map">Map</router-link>
+
+
 
     <router-link v-if="isAuthed" class="btn ghost" to="/dashboard">Dashboard</router-link>
     <router-link v-if="isAuthed" class="btn ghost" to="/profile">Profile</router-link>
     <router-link v-if="isAdmin" class="btn ghost" to="/admin">Admin</router-link>
+
 
     <router-link v-if="!isAuthed" class="btn" to="/login">Login</router-link>
     <button v-else class="btn secondary" @click="logout">Logout</button>
