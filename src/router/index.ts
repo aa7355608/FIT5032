@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+
+
 import Home from '@/pages/Home.vue'
 import Login from '@/pages/Login.vue'
 import Register from '@/pages/Register.vue'
@@ -7,17 +9,19 @@ import Admin from '@/pages/Admin.vue'
 import Reviews from '@/pages/Reviews.vue'
 
 
+import MoodTracker from '@/pages/MoodTracker.vue'
 import Mindfulness from '@/pages/Mindfulness.vue'
 import Resources from '@/pages/Resources.vue'
 import Community from '@/pages/Community.vue'
 import Profile from '@/pages/Profile.vue'
 import Help from '@/pages/Help.vue'
-import MoodTracker from '@/pages/MoodTracker.vue'
-
-import { useAuthStore } from '@/store/auth'
 import EmailDemo from '@/pages/EmailDemo.vue'
 import AdminTables from '@/pages/AdminTables.vue'
 import MapPage from '@/pages/Map.vue'
+import Charts from '@/pages/Charts.vue'
+
+import { useAuthStore } from '@/store/auth'
+
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
@@ -28,28 +32,38 @@ declare module 'vue-router' {
 
 const routes: RouteRecordRaw[] = [
   { path: '/', component: Home },
+
   { path: '/login', component: Login, meta: { guestOnly: true } },
   { path: '/register', component: Register, meta: { guestOnly: true } },
 
-  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
   { path: '/admin', component: Admin, meta: { requiresAuth: true, roles: ['admin'] } },
   { path: '/admin/tables', component: AdminTables, meta: { requiresAuth: true, roles: ['admin'] } },
 
+  { path: '/reviews', component: Reviews },
+
   
-  { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
   { path: '/mindfulness', component: Mindfulness },
   { path: '/resources', component: Resources },
   { path: '/community', component: Community },
-  { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
   { path: '/help', component: Help },
 
-  { path: '/reviews', component: Reviews },
-  { path: '/:pathMatch(.*)*', redirect: '/' }
-  { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
+
+  
   { path: '/map', component: MapPage },
+  { path: '/charts', component: Charts, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
+
+ 
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
-const router = createRouter({ history: createWebHistory(), routes })
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
 
 router.beforeEach((to) => {
   const auth = useAuthStore()

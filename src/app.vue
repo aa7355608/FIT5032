@@ -1,16 +1,16 @@
 <template>
-  <div class="app">
-    <NavBar />
-    <a href="#main" class="visually-hidden-focusable">Skip to content</a>
-<main id="main" class="container"> <!-- already present -->
+  <NavBar />
+  <a href="#main" class="visually-hidden-focusable">Skip to main content</a>
 
-    <main class="container">
-      <router-view />
-    </main>
-    <footer class="footer">© 2025 Youth Wellbeing</footer>
-  </div>
+  <main id="main" class="container">
+    <router-view />
+  </main>
+
+  <footer>
+    <p>© 2025 Youth Wellbeing App — Accessible & Inclusive Design</p>
+  </footer>
 </template>
 
 <script setup lang="ts">
-import NavBar from './components/NavBar.vue'
+import NavBar from '@/components/NavBar.vue'
 </script>

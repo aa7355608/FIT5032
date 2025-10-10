@@ -332,3 +332,21 @@ footer {
     color: #fff;
   }
 }
+:focus {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden-focusable {
+  position: absolute;
+  left: -9999px;
+}
+
+.visually-hidden-focusable:focus {
+  position: static;
+  left: auto;
+  background: var(--primary);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
