@@ -55,6 +55,7 @@ import { useAuthStore } from '@/store/auth'
 import StarRating from '@/components/StarRating.vue'
 import { ref } from 'vue'
 import { utils, writeFile } from 'xlsx'
+import { jsPDF } from 'jspdf' 
 
 const exportCsv = () => {
   const rows = reviews.items.map(r => ({
@@ -68,15 +69,49 @@ const exportCsv = () => {
   writeFile(wb, 'reviews.csv')
 }
 
-const exportPdf = async () => {
-  const { default: jsPDF } = await import('jspdf')
-  const pdf = new jsPDF()
-  pdf.text('Youth Wellbeing Reviews', 14, 16)
-  reviews.items.forEach((r, i) => {
-    pdf.text(`${i + 1}. ${r.title} — ${r.rating}★`, 14, 28 + i * 8)
+const exportPdf = () => {
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4' }) 
+  const left = 40
+  const top = 40
+  const lineGap = 14
+  const pageBottom = 820   
+  const wrapWidth = 520    
+
+ 
+  pdf.setFontSize(16)
+  pdf.setFont(undefined, 'bold')
+  pdf.text('Youth Wellbeing Reviews', left, top)
+
+  let y = top + 24
+  pdf.setFontSize(12)
+
+  const rows = reviews.items.length
+    ? reviews.items
+    : [{ title: 'No reviews yet', rating: '-', comment: '—' }]
+
+  rows.forEach((r, i) => {
+    
+    const head = `${i + 1}. ${r.title} — ${r.rating}★`
+    if (y > pageBottom) { pdf.addPage(); y = top }
+    pdf.setFont(undefined, 'bold'); pdf.text(head, left, y); y += 18
+
+    
+    pdf.setFont(undefined, 'normal')
+    const text = r.comment && r.comment.trim() ? r.comment.trim() : '-'
+    const lines = pdf.splitTextToSize(text, wrapWidth)
+
+    lines.forEach(line => {
+      if (y > pageBottom) { pdf.addPage(); y = top }
+      pdf.text(line, left, y); y += lineGap
+    })
+
+    y += 10 
+    if (y > pageBottom) { pdf.addPage(); y = top }
   })
+
   pdf.save('reviews.pdf')
 }
+
 
 const reviews = useReviewsStore()
 const auth = useAuthStore()
