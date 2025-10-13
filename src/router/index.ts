@@ -36,43 +36,25 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login, meta: { guestOnly: true } },
   { path: '/register', component: Register, meta: { guestOnly: true } },
 
-  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
+  // protected pages (need login)
+  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user','admin'] } },
+  { path: '/charts', component: Charts, meta: { requiresAuth: true, roles: ['user','admin'] } },
+
+  // admin-only
   { path: '/admin', component: Admin, meta: { requiresAuth: true, roles: ['admin'] } },
   { path: '/admin/tables', component: AdminTables, meta: { requiresAuth: true, roles: ['admin'] } },
 
+  // public sections
   { path: '/reviews', component: Reviews },
-
-  
-  { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
   { path: '/mindfulness', component: Mindfulness },
   { path: '/resources', component: Resources },
   { path: '/community', component: Community },
-  { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
   { path: '/help', component: Help },
-
-  { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
-
-  
   { path: '/map', component: MapPage },
-  { path: '/charts', component: Charts, meta: { requiresAuth: true, roles: ['user', 'admin'] } },
 
- 
+  // optional: email demo may require auth; keep if you want
+  { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user','admin'] } },
+
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
-
-router.beforeEach((to) => {
-  const auth = useAuthStore()
-  if (to.meta.guestOnly && auth.isAuthenticated) return { path: '/dashboard' }
-  if (to.meta.requiresAuth && !auth.isAuthenticated) return { path: '/login' }
-  if (to.meta.roles) {
-    const ok = to.meta.roles.includes(auth.user?.role || 'user')
-    if (!ok) return { path: '/' }
-  }
-})
-
-export default router

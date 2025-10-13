@@ -2,15 +2,25 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
-import './styles.css'
-import { useAuthStore } from './store/auth'
+import '@/assets/styles.css'
+import { useAuthStore } from '@/store/auth'
 
 const app = createApp(App)
-app.use(createPinia())
-app.use(router)
+const pinia = createPinia()
+app.use(pinia)
 
-// restore session
+// 👉 restore session BEFORE installing/using the router
 const auth = useAuthStore()
 auth.restore()
 
-app.mount('#app')
+app.use(router)
+
+// wait for the initial navigation to finish (no guard loops)
+router.isReady().then(() => {
+  app.mount('#app')
+})
+
+// optional: register SW (offline)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
