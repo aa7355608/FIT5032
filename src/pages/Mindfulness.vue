@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="card">
       <h2>Mindfulness & Exercises</h2>
-      <p class="muted">Choose a breathing preset or customise timings. Visual cue, countdown, optional chime, and session history included.</p>
+      <p class="muted">Breathing presets, custom timings, visual guide, countdown, chime, and robust session history.</p>
     </div>
 
     <!-- Controls -->
@@ -17,23 +17,10 @@
           </select>
         </label>
 
-        <label>
-          Inhale (s)
-          <input class="input" type="number" min="1" v-model.number="inhale" />
-        </label>
-        <label>
-          Hold (s)
-          <input class="input" type="number" min="0" v-model.number="hold" />
-        </label>
-        <label>
-          Exhale (s)
-          <input class="input" type="number" min="1" v-model.number="exhale" />
-        </label>
-
-        <label>
-          Session (min)
-          <input class="input" type="number" min="1" v-model.number="minutes" />
-        </label>
+        <label>Inhale (s)<input class="input" type="number" min="1" v-model.number="inhale" /></label>
+        <label>Hold (s)<input class="input" type="number" min="0" v-model.number="hold" /></label>
+        <label>Exhale (s)<input class="input" type="number" min="1" v-model.number="exhale" /></label>
+        <label>Session (min)<input class="input" type="number" min="1" v-model.number="minutes" /></label>
 
         <label class="row" style="gap:6px; align-items:center;">
           <input type="checkbox" v-model="chime" /> Chime
@@ -43,7 +30,8 @@
       <div class="row" style="gap:8px; margin-top:10px; flex-wrap:wrap;">
         <button class="btn" @click="start" :disabled="running">Start</button>
         <button class="btn secondary" @click="togglePause" :disabled="!running">{{ paused ? 'Resume' : 'Pause' }}</button>
-        <button class="btn ghost" @click="reset">Reset</button>
+        <button class="btn ghost" @click="endAndSave" :disabled="!running && elapsedMs===0">End & Save</button>
+        <button class="btn ghost" @click="reset" :disabled="!running && elapsedMs===0">Reset</button>
       </div>
     </div>
 
@@ -60,10 +48,9 @@
     <!-- Notes -->
     <div class="card">
       <h3>Quick Reflection (optional)</h3>
-      <p class="muted">How do you feel after this practice?</p>
       <div class="row" style="gap:8px; flex-wrap:wrap;">
         <textarea class="input" rows="3" v-model="note" maxlength="200" placeholder="e.g., Feel calmer and more focused."></textarea>
-        <button class="btn" @click="saveNote" :disabled="!note.trim()">Save Note</button>
+        <button class="btn" @click="saveNote" :disabled="!history.length || !note.trim()">Save Note</button>
       </div>
       <p v-if="saved" class="muted" style="margin-top:6px;">Saved!</p>
     </div>
@@ -71,12 +58,13 @@
     <!-- History -->
     <div class="card">
       <h3>Session History</h3>
-      <p class="muted">Stored locally on this device.</p>
+      <p class="muted">Stored locally on this device (completed or aborted).</p>
       <div class="grid cards">
         <article v-for="s in history" :key="s.id" class="card">
           <h3>{{ s.name }}</h3>
-          <p class="muted">{{ s.date }}</p>
+          <p class="muted">{{ s.date }} • <b>{{ s.status }}</b></p>
           <p>Breaths: {{ s.breaths }} • Duration: {{ s.duration }}</p>
+          <p class="muted">Pattern: {{ s.pattern }} • Target: {{ s.target }}</p>
           <p v-if="s.note">“{{ s.note }}”</p>
         </article>
       </div>
@@ -92,7 +80,19 @@ import { onBeforeUnmount, onMounted, reactive, ref, computed } from 'vue'
 import BreathCircle from '@/components/BreathCircle.vue'
 
 type Phase = 'inhale'|'hold'|'exhale'|'idle'
-type Session = { id:string; name:string; date:string; breaths:number; duration:string; note?:string }
+type Status = 'completed'|'aborted'
+type Session = {
+  id: string
+  name: string
+  date: string
+  breaths: number
+  duration: string
+  pattern: string         // e.g. 4-4-4
+  target: string          // e.g. 3min
+  chime: boolean
+  status: Status
+  note?: string
+}
 
 const presets: Record<string, { name:string; inhale:number; hold:number; exhale:number }> = {
   box:       { name: 'Box Breathing (4-4-4-4)', inhale: 4, hold: 4, exhale: 4 },
@@ -109,7 +109,7 @@ const chime = ref(true)
 
 const phase = ref<Phase>('idle')
 const phaseRemaining = ref(0)
-const phaseProgress = ref(0) // 0 ~ 1
+const phaseProgress = ref(0)
 const breaths = ref(0)
 const running = ref(false)
 const paused = ref(false)
@@ -125,6 +125,10 @@ let rafId = 0
 let tickPrev = 0
 let phaseTotal = 0
 
+function persistHistory() {
+  localStorage.setItem('mind_sessions', JSON.stringify(history.value))
+}
+
 function applyPreset() {
   if (presetKey.value !== 'custom') {
     const p = presets[presetKey.value]
@@ -133,6 +137,9 @@ function applyPreset() {
     exhale.value = p.exhale
   }
 }
+
+function patternStr() { return `${inhale.value}-${hold.value}-${exhale.value}` }
+function targetStr() { return `${minutes.value}min` }
 
 function start() {
   if (running.value) return
@@ -150,13 +157,45 @@ function start() {
 function togglePause() {
   if (!running.value) return
   paused.value = !paused.value
-  if (!paused.value) {
-    tickPrev = performance.now()
-    rafId = requestAnimationFrame(tick)
+  if (!paused.value) { tickPrev = performance.now(); rafId = requestAnimationFrame(tick) }
+}
+
+function saveSession(status: Status) {
+  // 不重复保存：若总时长与呼吸为 0 则忽略
+  if (elapsedMs.value <= 0 && breaths.value <= 0) return
+  const name = presetKey.value === 'custom'
+    ? `Custom ${patternStr()}`
+    : presets[presetKey.value].name
+  const d = new Date()
+  const record: Session = {
+    id: crypto.randomUUID(),
+    name,
+    date: d.toLocaleString(),
+    breaths: breaths.value,
+    duration: msPretty(elapsedMs.value),
+    pattern: patternStr(),
+    target: targetStr(),
+    chime: chime.value,
+    status
   }
+  history.value.unshift(record)
+  persistHistory()
+}
+
+function endAndSave() {
+  // 手动结束并保存为 completed
+  running.value = false
+  paused.value = false
+  phase.value = 'idle'
+  phaseRemaining.value = 0
+  phaseProgress.value = 0
+  cancelAnimationFrame(rafId)
+  saveSession('completed')
 }
 
 function reset() {
+  // 若已有进度，则保存为 aborted
+  if (elapsedMs.value > 0 || breaths.value > 0) saveSession('aborted')
   running.value = false
   paused.value = false
   phase.value = 'idle'
@@ -185,11 +224,7 @@ function nextPhase() {
   if (phase.value === 'hold') { startPhase('exhale', exhale.value); return }
   if (phase.value === 'exhale') {
     breaths.value++
-   
-    if (elapsedMs.value >= totalMs.value) {
-      finishSession()
-      return
-    }
+    if (elapsedMs.value >= totalMs.value) { finishSession(); return }
     startPhase('inhale', inhale.value)
   }
 }
@@ -201,35 +236,20 @@ function finishSession() {
   phaseRemaining.value = 0
   phaseProgress.value = 0
   cancelAnimationFrame(rafId)
- 
-  const name = presetKey.value === 'custom'
-    ? `Custom ${inhale.value}-${hold.value}-${exhale.value}`
-    : presets[presetKey.value].name
-  const d = new Date()
-  const record: Session = {
-    id: crypto.randomUUID(),
-    name,
-    date: d.toLocaleString(),
-    breaths: breaths.value,
-    duration: msPretty(elapsedMs.value)
-  }
-  history.value.unshift(record)
-  localStorage.setItem('mind_sessions', JSON.stringify(history.value))
+  saveSession('completed')    // ✅ 结束时保存为 completed
 }
 
 function tick(now: number) {
   if (!running.value || paused.value) return
   const delta = Math.max(0, now - tickPrev)
   tickPrev = now
-
   elapsedMs.value += delta
- 
+
   phaseProgress.value = Math.min(1, phaseProgress.value + delta / (phaseTotal * 1000))
   const remaining = Math.ceil((1 - phaseProgress.value) * phaseTotal)
   phaseRemaining.value = remaining
 
   if (phaseProgress.value >= 1) nextPhase()
-
   if (running.value && !paused.value) rafId = requestAnimationFrame(tick)
 }
 
@@ -257,20 +277,14 @@ function msPretty(ms: number) {
 }
 
 const elapsedPretty = computed(() => msPretty(elapsedMs.value))
-const leftPretty = computed(() => {
-  const left = Math.max(0, totalMs.value - elapsedMs.value)
-  return msPretty(left)
-})
+const leftPretty = computed(() => msPretty(Math.max(0, totalMs.value - elapsedMs.value)))
 
 function saveNote() {
   const t = note.value.trim()
-  if (!t) return
+  if (!t || !history.value.length) return
+  history.value[0].note = t
+  persistHistory()
   saved.value = true
-
-  if (history.value.length) {
-    history.value[0].note = t
-    localStorage.setItem('mind_sessions', JSON.stringify(history.value))
-  }
   setTimeout(() => (saved.value = false), 1000)
   note.value = ''
 }
@@ -280,8 +294,21 @@ function clearHistory() {
   localStorage.removeItem('mind_sessions')
 }
 
-onMounted(() => applyPreset())
-onBeforeUnmount(() => cancelAnimationFrame(rafId))
+// 离开页面或切路由时，如果有进度，自动保存为 aborted
+function autoSaveOnLeave() {
+  if (running.value || elapsedMs.value > 0 || breaths.value > 0) {
+    saveSession('aborted')
+  }
+}
+
+onMounted(() => {
+  applyPreset()
+  window.addEventListener('beforeunload', autoSaveOnLeave)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', autoSaveOnLeave)
+  autoSaveOnLeave()
+})
 </script>
 
 <style scoped>
