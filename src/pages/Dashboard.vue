@@ -1,44 +1,185 @@
 <template>
-  <section class="grid" style="gap:16px;">
+  <section class="grid" style="gap:16px; max-width:1200px; margin-inline:auto;">
+    <!-- Welcome -->
     <div class="card">
-      <h2>Hello, {{ auth.user?.email }}</h2>
-      <p class="muted">Quick links & your weekly wellbeing overview.</p>
-    </div>
-
-    <div class="card">
-      <h3>Mood Overview</h3>
-      <p class="muted">Demo placeholder – plug your chart lib later.</p>
-      <div class="row">
-        <StarRating :avg="reviews.average" :count="reviews.count" />
-        <router-link class="btn secondary" to="/reviews">Write a Review</router-link>
+      <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Welcome back{{ userName ? `, ${userName}` : '' }} 👋</h2>
+          <p class="muted" style="margin:.25rem 0 0 0;">
+            Keep small steps. Your streak is <b>{{ streakDays }}</b> day{{ streakDays===1?'':'s' }}.
+          </p>
+        </div>
+        <div class="row" style="gap:8px; flex-wrap:wrap;">
+          <router-link class="btn" to="/mindfulness">Continue Practice</router-link>
+          <router-link class="btn secondary" to="/resources">Browse Resources</router-link>
+        </div>
       </div>
     </div>
 
-    <div class="grid cards">
-      <router-link to="/mood" class="card" style="display:block;">
-        <h3>Mood Tracker</h3><p>Log & view trends</p>
-      </router-link>
-      <router-link to="/mindfulness" class="card" style="display:block;">
-        <h3>Breathing / Meditation</h3><p>2–5 min calm sessions</p>
-      </router-link>
-      <router-link to="/resources" class="card" style="display:block;">
-        <h3>Sleep Routine</h3><p>Wind-down checklist</p>
-      </router-link>
-      <router-link to="/community" class="card" style="display:block;">
-        <h3>Community</h3><p>Anonymous tips from peers</p>
-      </router-link>
+    <!-- KPI Cards -->
+    <div class="grid" style="gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <article class="card kpi">
+        <h3>Sessions</h3>
+        <p class="big">{{ totalSessions }}</p>
+        <p class="muted small">Last 7 days: {{ sessions7d }}</p>
+      </article>
+      <article class="card kpi">
+        <h3>Minutes Practiced</h3>
+        <p class="big">{{ totalMinutes }}</p>
+        <p class="muted small">Avg / session: {{ avgMinutes }}</p>
+      </article>
+      <article class="card kpi">
+        <h3>Favorites</h3>
+        <p class="big">{{ favoritesCount }}</p>
+        <p class="muted small">Resources you saved</p>
+      </article>
+      <article class="card kpi">
+        <h3>Community</h3>
+        <p class="big">{{ postsCount }}</p>
+        <p class="muted small">Posts created</p>
+      </article>
+      <article class="card kpi">
+        <h3>Average Rating</h3>
+        <p class="big">{{ avgRating }}</p>
+        <p class="muted small">From user reviews</p>
+      </article>
+    </div>
+
+    <!-- Activity Heat (7-day) -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Last 7 Days Activity</h3>
+        <span class="muted small">Sessions per day</span>
+      </div>
+      <div class="row" style="gap:8px; align-items:flex-end; margin-top:10px;">
+        <div v-for="d in last7" :key="d.label" class="bar">
+          <div class="bar-fill" :style="{ height: Math.max(4, d.count * 16) + 'px' }"></div>
+          <div class="bar-label">{{ d.label }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Sessions -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Recent Sessions</h3>
+        <router-link class="btn ghost" to="/mindfulness">New Session</router-link>
+      </div>
+      <div v-if="recentSessions.length===0" class="card" style="margin-top:8px;">
+        <p class="muted" style="margin:0;">No sessions yet. Try a 2-min breathing exercise to get started.</p>
+      </div>
+      <div v-else class="grid" style="gap:10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top:8px;">
+        <article v-for="s in recentSessions" :key="s.id" class="card">
+          <h4 style="margin:0;">{{ s.type || 'Practice' }}</h4>
+          <p class="muted" style="margin:.25rem 0 6px 0;">
+            {{ formatDateTime(s.ts) }} • {{ s.duration || 0 }} min
+          </p>
+          <p v-if="s.notes" style="margin:0;">“{{ truncate(s.notes, 100) }}”</p>
+        </article>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0;">Quick Actions</h3>
+      <div class="row" style="gap:8px; flex-wrap:wrap;">
+        <router-link class="btn" to="/reviews">Leave a Review</router-link>
+        <router-link class="btn" to="/community">Share to Community</router-link>
+        <router-link class="btn" to="/profile">Update Profile</router-link>
+        <router-link class="btn" to="/map">Plan a Walk</router-link>
+        <router-link class="btn" to="/help">Need Help</router-link>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/store/auth'
-import { useReviewsStore } from '@/store/reviews'
-import StarRating from '@/components/StarRating.vue'
 const auth = useAuthStore()
-const reviews = useReviewsStore()
+const userName = computed(() => auth.user?.email?.split('@')[0] || auth.user?.email || '')
+
+// ---- read persisted data (defensive) ----
+function readJSON<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback }
+}
+
+// sessions could be stored under different keys; merge defensively
+type Session = { id?: string; ts: number; duration?: number; type?: string; notes?: string }
+const ses1 = readJSON<Session[]>('mind_sessions', [])
+const ses2 = readJSON<Session[]>('mindfulness_sessions', [])
+const ses3 = readJSON<Session[]>('exercise_sessions', [])
+const sessions = computed<Session[]>(() => {
+  const merged = [...ses1, ...ses2, ...ses3].filter(s => s && typeof s.ts === 'number')
+  // assign ids for rendering if missing
+  return merged
+    .map((s, i) => ({ id: s.id || `s_${i}_${s.ts}`, ...s }))
+    .sort((a,b) => b.ts - a.ts)
+})
+
+// favorites
+const favorites = readJSON<string[]>('favorites', [])
+const favoritesCount = favorites.length
+
+// community posts
+type Post = { id: string; createdAt: number }
+const posts = readJSON<Post[]>('community_posts', [])
+const postsCount = posts.length
+
+// reviews (array of {rating: number}) → average
+type Review = { rating: number }
+const reviews = readJSON<Review[]>('reviews', [])
+const avgRating = reviews.length
+  ? (reviews.reduce((a, r) => a + (Number(r.rating) || 0), 0) / reviews.length).toFixed(1)
+  : '—'
+
+// KPI: sessions
+const totalSessions = computed(() => sessions.value.length)
+const totalMinutes = computed(() => sessions.value.reduce((a,s)=> a + (s.duration||0), 0))
+const avgMinutes = computed(() => totalSessions.value ? Math.round(totalMinutes.value / totalSessions.value) : 0)
+
+// Last 7 days histogram + streak
+function startOfDay(ts: number){ const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime() }
+const today0 = startOfDay(Date.now())
+const last7 = computed(() => {
+  const arr: { label: string, dayTs: number, count: number }[] = []
+  for (let i=6;i>=0;i--){
+    const dayTs = today0 - i*24*60*60*1000
+    const label = new Date(dayTs).toLocaleDateString(undefined, { weekday:'short' })
+    const count = sessions.value.filter(s => startOfDay(s.ts) === dayTs).length
+    arr.push({ label, dayTs, count })
+  }
+  return arr
+})
+const sessions7d = computed(() => last7.value.reduce((a,x)=>a+x.count,0))
+const streakDays = computed(() => {
+  // count consecutive days from today going backwards where there is >=1 session
+  let streak = 0
+  for (let i=0;i<100;i++){
+    const dayTs = today0 - i*24*60*60*1000
+    const count = sessions.value.filter(s => startOfDay(s.ts) === dayTs).length
+    if (count > 0) streak++
+    else break
+  }
+  return streak
+})
+
+// recent sessions (max 6)
+const recentSessions = computed(() => sessions.value.slice(0, 6))
+
+// utils
+function formatDateTime(ts: number){
+  const d = new Date(ts)
+  return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+}
+function truncate(s: string, n: number){ return (s || '').length > n ? s.slice(0,n) + '…' : (s || '') }
 </script>
 
 <style scoped>
 .muted { color:#9fb6cc; }
+.small { font-size: 12px; }
+.kpi .big { font-size: 28px; font-weight: 700; margin: 2px 0 0 0; }
+.bar { width: 36px; text-align: center; }
+.bar-fill { width: 100%; background:#2563eb; border-radius: 6px 6px 0 0; transition: height .3s; }
+.bar-label { font-size: 12px; margin-top: 4px; color:#9fb6cc; }
 </style>

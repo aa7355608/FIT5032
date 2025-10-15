@@ -1,71 +1,218 @@
 <template>
-  <section class="grid" style="gap:16px;">
+  <section class="grid" style="gap:16px; max-width:1200px; margin-inline:auto;">
     <div class="card">
-      <h2>Support Map</h2>
-      <p class="muted">Feature 1: Search places • Feature 2: Route from my location</p>
-      <div class="row" style="gap:8px; flex-wrap:wrap;">
-        <input v-model="query" class="input" placeholder="Search clinics, helplines…" @keyup.enter="search" aria-label="Search places" />
-        <button class="btn" @click="search">Search</button>
-        <button class="btn secondary" @click="routeToSelected" :disabled="!selected">Route</button>
-      </div>
+      <h2>Google Maps — Two Points Only</h2>
+      <p class="muted">1st click sets <b>A</b>. Any later click/search sets <b>B</b> & draws the route. “Clear” removes A/B and the route completely.</p>
+      <p v-if="error" style="color:#b91c1c; margin-top:6px;">{{ error }}</p>
     </div>
 
-    <div id="map" style="height:520px; border-radius:12px; overflow:hidden;"></div>
+    <div class="card">
+      <div class="row" style="gap:10px; flex-wrap:wrap; align-items:center;">
+        <label>Search (sets B)
+          <input id="gm-autocomplete" class="input" placeholder="e.g., park, clinic, cafe" style="min-width:260px;" />
+        </label>
+
+        <label>Mode
+          <select class="input" v-model="mode">
+            <option value="DRIVING">Driving</option>
+            <option value="WALKING">Walking</option>
+            <option value="BICYCLING">Cycling</option>
+          </select>
+        </label>
+
+        <button class="btn secondary" @click="useMyLocation">Use My Location (reset A)</button>
+        <button class="btn ghost" @click="clearAll" :disabled="!hasAnything">Clear</button>
+      </div>
+      <p class="muted" style="margin-top:6px;">After A is set, every new map click or search only moves B and recalculates the route.</p>
+    </div>
+
+    <div id="map" class="map"></div>
+
+    <div class="card" v-if="summary.distance">
+      <h3>Route Summary</h3>
+      <p><b>Distance:</b> {{ summary.distance }} • <b>Duration:</b> {{ summary.duration }}</p>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import mapboxgl from 'mapbox-gl'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 
-mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN'
-let map: mapboxgl.Map
-const query = ref('')
-const selected = ref<mapboxgl.Marker | null>(null)
-let userLngLat: [number, number] | null = null
-onMounted(() => {
-  map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/streets-v12',
-    center: [144.9631, -37.8136],
-    zoom: 11
+const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string
+const error = ref('')
+
+const map = ref<any>(null)
+const mode = ref<'DRIVING'|'WALKING'|'BICYCLING'>('DRIVING')
+
+const origin = ref<any>(null)        // google.maps.LatLng | null
+const destination = ref<any>(null)   // google.maps.LatLng | null
+const markerA = ref<any>(null)       // google.maps.Marker | null
+const markerB = ref<any>(null)       // google.maps.Marker | null
+const acInput = ref<HTMLInputElement | null>(null)
+
+const dirService = ref<any>(null)
+const dirRenderer = ref<any>(null)
+
+const summary = ref<{distance: string, duration: string}>({ distance: '', duration: '' })
+const hasRoute = computed(() => !!summary.value.distance)
+const hasAnything = computed(() => !!origin.value || !!destination.value || hasRoute.value)
+
+function loadGoogle(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).google?.maps?.importLibrary) return resolve()
+    if (!GOOGLE_KEY) {
+      error.value = 'Missing Google Maps API key. Add VITE_GOOGLE_MAPS_KEY to .env and restart (npm run dev).'
+      return reject(new Error('NO_KEY'))
+    }
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_KEY}&v=weekly&libraries=places&loading=async`
+    script.async = true
+    script.onerror = () => { error.value = 'Failed to load Google Maps script.'; reject(new Error('LOAD_FAIL')) }
+    script.onload = () => resolve()
+    document.head.appendChild(script)
   })
-  // find user loc
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      userLngLat = [pos.coords.longitude, pos.coords.latitude]
-      new mapboxgl.Marker({ color: '#2563eb' })
-        .setLngLat(userLngLat).setPopup(new mapboxgl.Popup().setText('You are here'))
-        .addTo(map)
-      map.flyTo({ center: userLngLat, zoom: 12 })
-    })
+}
+
+function centerMel() {
+  map.value?.setCenter({ lat: -37.8136, lng: 144.9631 })
+  map.value?.setZoom(12)
+}
+
+function setOrMoveMarkerA(pos: any) {
+  const g = (window as any).google
+  if (!markerA.value) markerA.value = new g.maps.Marker({ position: pos, map: map.value, label: 'A' })
+  else markerA.value.setPosition(pos)
+}
+function setOrMoveMarkerB(pos: any) {
+  const g = (window as any).google
+  if (!markerB.value) markerB.value = new g.maps.Marker({ position: pos, map: map.value, label: 'B' })
+  else markerB.value.setPosition(pos)
+}
+function removeMarker(refMarker: any) {
+  if (refMarker.value) {
+    refMarker.value.setMap(null)
+    refMarker.value = null
   }
-})
+}
+function resetSummary() { summary.value = { distance: '', duration: '' } }
 
-const search = async () => {
-  // Mapbox Geocoding
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.value)}.json?access_token=${mapboxgl.accessToken}&limit=5`
-  const res = await fetch(url); const data = await res.json()
-  // add markers
-  data.features.forEach((f: any) => {
-    const m = new mapboxgl.Marker().setLngLat(f.center).setPopup(new mapboxgl.Popup().setText(f.place_name)).addTo(map)
-    m.getElement().addEventListener('click', () => (selected.value = m))
+async function initMap() {
+  const g = (window as any).google
+  await g.maps.importLibrary('maps')
+  await g.maps.importLibrary('places')
+  await g.maps.importLibrary('routes')
+
+  map.value = new g.maps.Map(document.getElementById('map'), { center: { lat:-37.8136, lng:144.9631 }, zoom: 12 })
+  dirService.value = new g.maps.DirectionsService()
+  // 关键：不让 Google 自己画 A/B，避免有“幽灵标记”清不掉
+  dirRenderer.value = new g.maps.DirectionsRenderer({ map: map.value, suppressMarkers: true })
+
+  // 点击逻辑：第一次设 A；之后任何点击只移动 B 并画线
+  map.value.addListener('click', (e: any) => {
+    const ll = e.latLng
+    if (!origin.value) {
+      origin.value = ll
+      setOrMoveMarkerA(ll)
+    } else {
+      destination.value = ll
+      setOrMoveMarkerB(ll)
+      calcRoute()
+    }
   })
-  if (data.features[0]) map.flyTo({ center: data.features[0].center, zoom: 12 })
+
+  // Autocomplete：永远作为 B
+  acInput.value = document.getElementById('gm-autocomplete') as HTMLInputElement
+  const ac = new g.maps.places.Autocomplete(acInput.value, { fields: ['geometry','name'] })
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace()
+    if (!place?.geometry?.location) return
+    if (!origin.value) {
+      origin.value = map.value.getCenter()
+      setOrMoveMarkerA(origin.value)
+    }
+    destination.value = place.geometry.location
+    setOrMoveMarkerB(destination.value)
+    map.value.panTo(destination.value); map.value.setZoom(14)
+    calcRoute()
+  })
 }
 
-const routeToSelected = async () => {
-  if (!userLngLat || !selected.value) return
-  const dest = (selected.value as any)._lngLat // internal; fine for demo
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${userLngLat[0]},${userLngLat[1]};${dest.lng},${dest.lat}?geometries=geojson&access_token=${mapboxgl.accessToken}`
-  const res = await fetch(url); const data = await res.json()
-  const coords = data.routes[0].geometry.coordinates
-  if (map.getSource('route')) { map.removeLayer('route'); map.removeSource('route') }
-  map.addSource('route', { type: 'geojson', data: { type:'Feature', geometry:{ type:'LineString', coordinates: coords } } })
-  map.addLayer({ id:'route', type:'line', source:'route', paint:{ 'line-color':'#2563eb', 'line-width':4 } })
+function calcRoute() {
+  if (!origin.value || !destination.value) return
+  const g = (window as any).google
+  dirService.value.route(
+    {
+      origin: origin.value,
+      destination: destination.value,
+      travelMode: g.maps.TravelMode[mode.value]
+    },
+    (res: any, status: any) => {
+      if (status !== 'OK' || !res) { error.value = `Route failed: ${status}`; return }
+      dirRenderer.value.setDirections(res)
+      const leg = res.routes[0].legs[0]
+      summary.value = {
+        distance: leg.distance?.text || '',
+        duration: leg.duration?.text || ''
+      }
+      // 适配视野
+      const bounds = new g.maps.LatLngBounds()
+      res.routes[0].overview_path.forEach((p: any) => bounds.extend(p))
+      map.value.fitBounds(bounds, 50)
+    }
+  )
 }
+
+function clearAll() {
+  // 1) 清路线
+  if (dirRenderer.value) dirRenderer.value.setDirections({ routes: [] })
+  resetSummary()
+
+  // 2) 移除我们的 A、B 标记（如果存在）
+  removeMarker(markerA)
+  removeMarker(markerB)
+
+  // 3) 置空 A/B LatLng
+  origin.value = null
+  destination.value = null
+
+  // 4) 清搜索框
+  if (acInput.value) acInput.value.value = ''
+
+  // 5) 复位地图
+  centerMel()
+}
+
+function useMyLocation() {
+  if (!map.value) return
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      // 重设 A；清空 B 与路线
+      const g = (window as any).google
+      const ll = new g.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
+
+      if (dirRenderer.value) dirRenderer.value.setDirections({ routes: [] })
+      resetSummary()
+
+      destination.value = null
+      removeMarker(markerB)
+
+      origin.value = ll
+      setOrMoveMarkerA(ll)
+      map.value.panTo(ll); map.value.setZoom(14)
+    },
+    () => { error.value = 'Geolocation failed. Please allow location permission.' }
+  )
+}
+
+onMounted(async () => {
+  try {
+    await loadGoogle()
+    await initMap()
+  } catch (e) { /* error 已设置 */ }
+})
 </script>
 
 <style scoped>
+.map { width: 100%; height: 70vh; border-radius: 12px; overflow: hidden; }
 .muted { color:#9fb6cc; }
 </style>
