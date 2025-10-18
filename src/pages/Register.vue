@@ -1,59 +1,63 @@
 <template>
-  <div class="card" style="max-width:560px; margin:0 auto;">
-    <h2>Create Account</h2>
-    <Form :validation-schema="registerSchema" @submit="onSubmit" v-slot="{ errors }">
-      <div class="form-group">
-        <label>Email</label>
-        <Field name="email" class="input" type="email" />
-        <div class="error">{{ errors.email }}</div>
+  <section class="grid" style="gap:16px; max-width:480px; margin-inline:auto;">
+    <div class="card">
+      <h2>Create Account</h2>
+      <p class="muted">Register to save your progress and post in Community.</p>
+    </div>
+
+    <div class="card">
+      <div class="grid" style="gap:10px;">
+        <label>Display Name
+          <input class="input" v-model.trim="name" placeholder="Your name (optional)" />
+        </label>
+        <label>Email
+          <input class="input" v-model.trim="email" placeholder="you@example.com" />
+        </label>
+        <label>Password
+          <input class="input" type="password" v-model="password" placeholder="At least 6 characters" />
+        </label>
+        <label>Role
+          <select class="input" v-model="role">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+
+        <button class="btn" @click="submit" :disabled="busy">{{ busy ? 'Registering…' : 'Register' }}</button>
+        <p v-if="err" style="color:#b91c1c; margin:4px 0 0 0;">{{ err }}</p>
+        <p class="muted" style="margin:8px 0 0 0;">
+          Already have an account? <router-link to="/login">Log in</router-link>.
+        </p>
       </div>
-      <div class="form-group">
-        <label>Password</label>
-        <Field name="password" class="input" type="password" />
-        <div class="error">{{ errors.password }}</div>
-      </div>
-      <div class="form-group">
-        <label>Confirm Password</label>
-        <Field name="confirm" class="input" type="password" />
-        <div class="error">{{ errors.confirm }}</div>
-      </div>
-      <div class="form-group">
-        <label>Role</label>
-        <Field as="select" name="role" class="input">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </Field>
-        <div class="error">{{ errors.role }}</div>
-      </div>
-      <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Creating…' : 'Register' }}</button>
-      <p class="error" v-if="errorMsg">{{ errorMsg }}</p>
-    </Form>
-  </div>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { Form, Field } from 'vee-validate'
-import { registerSchema } from '@/utils/validators'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
-const loading = ref(false)
-const errorMsg = ref('')
 
-const onSubmit = async (values: any) => {
+const name = ref('')
+const email = ref('')
+const password = ref('')
+const role = ref<'user'|'admin'>('user')
+const err = ref('')
+const busy = ref(false)
+
+async function submit(){
+  err.value = ''
   try {
-    loading.value = true
-    await new Promise(r => setTimeout(r, 300))
-    auth.register(values.email, values.password, values.role)
-    auth.login(values.email, values.password)
+    busy.value = true
+    await auth.register({ name: name.value, email: email.value, password: password.value, role: role.value })
     router.push('/dashboard')
   } catch (e: any) {
-    errorMsg.value = e.message || 'Register failed'
+    err.value = e?.message || 'Registration failed.'
   } finally {
-    loading.value = false
+    busy.value = false
   }
 }
 </script>

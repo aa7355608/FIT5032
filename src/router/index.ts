@@ -34,13 +34,13 @@ const routes: RouteRecordRaw[] = [
   { path: '/', component: Home },
 
   // Auth
-  { path: '/login', component: Login, meta: { guestOnly: true } },
-  { path: '/register', component: Register, meta: { guestOnly: true } },
+{ path: '/login', component: () => import('@/pages/Login.vue'), meta: { guestOnly: true } },
+{ path: '/register', component: () => import('@/pages/Register.vue'), meta: { guestOnly: true } },
+
 
   // Protected (user or admin)
   { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, roles: ['user','admin'] } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true, roles: ['user','admin'] } },
-  { path: '/charts', component: Charts, meta: { requiresAuth: true, roles: ['user','admin'] } },
   { path: '/mood', component: MoodTracker, meta: { requiresAuth: true, roles: ['user','admin'] } },
   { path: '/email', component: EmailDemo, meta: { requiresAuth: true, roles: ['user','admin'] } },
 

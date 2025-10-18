@@ -176,6 +176,8 @@ const email = computed(() => auth.user?.email || '')
 const defaultAvatar = 'https://api.dicebear.com/7.x/thumbs/svg?seed=student'
 
 // ---------- Helpers ----------
+
+
 function readJSON<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback }
 }
@@ -266,14 +268,20 @@ const lastSessionText = computed(() => sessions.value[0]?.ts ? fmt(sessions.valu
 const favorites = ref<string[]>(readJSON<string[]>('favorites', []))
 
 // ---------- Actions ----------
-function save(){
+function save() {
+  const auth = useAuthStore()
 
   profile.name = (profile.name || '').trim() || (email.value?.split('@')[0] || 'Guest')
   if (profile.goalMinutes && profile.goalMinutes < 0) profile.goalMinutes = 0
+
   saveProfileToLocal(profile)
+
+
+  auth.updateDisplayName(profile.name || '')
 
   alert('Profile saved ✅')
 }
+
 function resetFromStorage(){
   const p = loadProfile()
   Object.assign(profile, p)

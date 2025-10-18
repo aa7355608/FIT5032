@@ -1,6 +1,5 @@
 <template>
   <section class="grid" style="gap:16px; max-width:1200px; margin-inline:auto;">
-    <!-- Welcome -->
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
         <div>
@@ -16,7 +15,6 @@
       </div>
     </div>
 
-    <!-- KPI Cards -->
     <div class="grid" style="gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
       <article class="card kpi">
         <h3>Sessions</h3>
@@ -38,14 +36,8 @@
         <p class="big">{{ postsCount }}</p>
         <p class="muted small">Posts created</p>
       </article>
-      <article class="card kpi">
-        <h3>Average Rating</h3>
-        <p class="big">{{ avgRating }}</p>
-        <p class="muted small">From user reviews</p>
-      </article>
     </div>
 
-    <!-- Activity Heat (7-day) -->
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Last 7 Days Activity</h3>
@@ -59,7 +51,6 @@
       </div>
     </div>
 
-    <!-- Recent Sessions -->
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Recent Sessions</h3>
@@ -79,7 +70,6 @@
       </div>
     </div>
 
-    <!-- Quick Actions -->
     <div class="card">
       <h3 style="margin:0 0 8px 0;">Quick Actions</h3>
       <div class="row" style="gap:8px; flex-wrap:wrap;">
@@ -94,51 +84,46 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useAuthStore } from '@/store/auth'
 const auth = useAuthStore()
-const userName = computed(() => auth.user?.email?.split('@')[0] || auth.user?.email || '')
 
-// ---- read persisted data (defensive) ----
+function getProfileDisplayName(): string {
+  const email = auth.user?.email || 'guest'
+  try {
+    const p = JSON.parse(localStorage.getItem(`user_profile:${email}`) || '{}')
+    const name = (p?.name || '').trim()
+    if (name) return name
+  } catch {}
+  return (auth.user as any)?.displayName || (auth.user?.email?.split('@')[0] || '')
+}
+
+const userName = computed(() => getProfileDisplayName())
+
 function readJSON<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback }
 }
 
-// sessions could be stored under different keys; merge defensively
 type Session = { id?: string; ts: number; duration?: number; type?: string; notes?: string }
 const ses1 = readJSON<Session[]>('mind_sessions', [])
 const ses2 = readJSON<Session[]>('mindfulness_sessions', [])
 const ses3 = readJSON<Session[]>('exercise_sessions', [])
 const sessions = computed<Session[]>(() => {
   const merged = [...ses1, ...ses2, ...ses3].filter(s => s && typeof s.ts === 'number')
-  // assign ids for rendering if missing
-  return merged
-    .map((s, i) => ({ id: s.id || `s_${i}_${s.ts}`, ...s }))
-    .sort((a,b) => b.ts - a.ts)
+  return merged.map((s, i) => ({ id: s.id || `s_${i}_${s.ts}`, ...s })).sort((a,b) => b.ts - a.ts)
 })
 
-// favorites
 const favorites = readJSON<string[]>('favorites', [])
 const favoritesCount = favorites.length
 
-// community posts
 type Post = { id: string; createdAt: number }
 const posts = readJSON<Post[]>('community_posts', [])
 const postsCount = posts.length
 
-// reviews (array of {rating: number}) → average
-type Review = { rating: number }
-const reviews = readJSON<Review[]>('reviews', [])
-const avgRating = reviews.length
-  ? (reviews.reduce((a, r) => a + (Number(r.rating) || 0), 0) / reviews.length).toFixed(1)
-  : '—'
-
-// KPI: sessions
 const totalSessions = computed(() => sessions.value.length)
 const totalMinutes = computed(() => sessions.value.reduce((a,s)=> a + (s.duration||0), 0))
 const avgMinutes = computed(() => totalSessions.value ? Math.round(totalMinutes.value / totalSessions.value) : 0)
 
-// Last 7 days histogram + streak
 function startOfDay(ts: number){ const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime() }
 const today0 = startOfDay(Date.now())
 const last7 = computed(() => {
@@ -153,7 +138,6 @@ const last7 = computed(() => {
 })
 const sessions7d = computed(() => last7.value.reduce((a,x)=>a+x.count,0))
 const streakDays = computed(() => {
-  // count consecutive days from today going backwards where there is >=1 session
   let streak = 0
   for (let i=0;i<100;i++){
     const dayTs = today0 - i*24*60*60*1000
@@ -163,11 +147,8 @@ const streakDays = computed(() => {
   }
   return streak
 })
-
-// recent sessions (max 6)
 const recentSessions = computed(() => sessions.value.slice(0, 6))
 
-// utils
 function formatDateTime(ts: number){
   const d = new Date(ts)
   return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })

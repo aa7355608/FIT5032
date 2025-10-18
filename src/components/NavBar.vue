@@ -15,7 +15,6 @@
     <!-- Authed -->
     <router-link v-if="isAuthed" class="btn ghost" to="/dashboard">Dashboard</router-link>
     <router-link v-if="isAuthed" class="btn ghost" to="/profile">Profile</router-link>
-    <router-link v-if="isAuthed" class="btn ghost" to="/charts">Charts</router-link>
     <router-link v-if="isAuthed" class="btn ghost" to="/email">Email</router-link>
 
     <!-- Admin -->

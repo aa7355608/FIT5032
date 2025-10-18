@@ -1,56 +1,133 @@
 <template>
-  <section class="card" style="max-width:720px; margin:auto;">
-    <h2>Send Email (Demo)</h2>
-    <p class="muted">Sends an email via EmailJS. Attachment is a generated CSV.</p>
-    <div class="form-group">
-      <label>Recipient Email</label>
-      <input v-model="to" class="input" type="email" placeholder="example@mail.com" />
-    </div>
-    <div class="row" style="gap:8px;">
-      <button class="btn" @click="send" :disabled="sending">{{ sending ? 'Sending…' : 'Send Email with Attachment' }}</button>
-      <span class="muted" v-if="msg">{{ msg }}</span>
+  <section class="p-6 max-w-3xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Send Email (Gmail API)</h1>
+    <p class="mb-6 text-gray-600">
+      Send an email with optional attachment via Cloud Function.
+    </p>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block font-medium">To</label>
+        <input v-model="to" type="email" class="input" placeholder="example@gmail.com" />
+      </div>
+
+      <div>
+        <label class="block font-medium">Subject</label>
+        <input v-model="subject" type="text" class="input" placeholder="Subject" />
+      </div>
+
+      <div>
+        <label class="block font-medium">Message</label>
+        <textarea v-model="message" class="input" rows="5" placeholder="Message"></textarea>
+      </div>
+
+      <div>
+        <label class="block font-medium">Attachment (optional, ≤ 5MB)</label>
+        <input type="file" @change="onFile" />
+        <div v-if="fileName" class="text-sm mt-1 text-gray-500">Selected: {{ fileName }}</div>
+      </div>
+
+      <div class="flex gap-3 mt-4">
+        <button @click="sendEmail" class="btn btn-primary">Send Email</button>
+        <button @click="reset" class="btn btn-secondary">Reset</button>
+      </div>
+
+      <div class="mt-4 text-sm" :class="statusClass">{{ status }}</div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import emailjs from 'emailjs-com'
-import { utils, write, WorkBook } from 'xlsx'
-import { ref } from 'vue'
-const to = ref('')
-const sending = ref(false)
-const msg = ref('')
+import { ref, computed } from "vue";
 
-const makeCsvBlob = () => {
-  const wb: WorkBook = utils.book_new()
-  const ws = utils.json_to_sheet([{ title: 'Welcome', note: 'Thanks for trying our app!' }])
-  utils.book_append_sheet(wb, ws, 'Note')
-  const u8 = write(wb, { type: 'array', bookType: 'csv' })
-  return new Blob([u8], { type: 'text/csv' })
+const to = ref("");
+const subject = ref("");
+const message = ref("");
+const fileName = ref("");
+const fileType = ref("");
+const attachmentBase64 = ref<string | null>(null);
+const status = ref("");
+
+const statusClass = computed(() => {
+  if (status.value.startsWith("✅")) return "text-green-600";
+  if (status.value.startsWith("❌")) return "text-red-600";
+  return "text-gray-600";
+});
+
+function reset() {
+  to.value = "";
+  subject.value = "";
+  message.value = "";
+  fileName.value = "";
+  fileType.value = "";
+  attachmentBase64.value = null;
+  status.value = "";
 }
 
-const send = async () => {
+async function onFile(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0];
+  if (!f) return;
+
+  fileName.value = f.name;
+  fileType.value = f.type || "application/octet-stream";
+  const buf = await f.arrayBuffer();
+  attachmentBase64.value = btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+
+async function sendEmail() {
   try {
-    sending.value = true
-    const file = makeCsvBlob()
-    const formData = new FormData()
-    formData.append('to_email', to.value)
-    formData.append('message', 'Hello from Youth App!')
-    formData.append('attachment', file, 'welcome.csv')
-    // EmailJS REST endpoint example (set your service/template keys in a backend or EmailJS SDK)
-    await emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID',
-      { to_email: to.value, message: 'See attached CSV' },
-      'YOUR_PUBLIC_KEY'
-    )
-    msg.value = 'Sent!'
-  } catch (e: any) {
-    msg.value = e.message || 'Failed'
-  } finally {
-    sending.value = false
+    status.value = "⏳ Sending...";
+    const body: any = {
+      to: to.value.trim(),
+      subject: subject.value.trim(),
+      message: message.value.trim(),
+    };
+    if (attachmentBase64.value) {
+      body.attachment = {
+        name: fileName.value,
+        mime: fileType.value,
+        contentBase64: attachmentBase64.value,
+      };
+    }
+
+    const res = await fetch(import.meta.env.VITE_FN_EMAIL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json();
+    if (json.ok) {
+      status.value = `✅ Email sent successfully${json.id ? " (ID: " + json.id + ")" : ""}`;
+    } else {
+      status.value = `❌ ${json.error || "Failed"}`;
+    }
+  } catch (err: any) {
+    console.error(err);
+    status.value = "❌ Failed to send email.";
   }
 }
 </script>
 
 <style scoped>
-.muted { color:#9fb6cc; }
+.input {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 4px;
+}
+.btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+.btn-secondary {
+  background: #ddd;
+  color: #333;
+}
 </style>

@@ -1,48 +1,51 @@
 <template>
-  <div class="card" style="max-width:520px; margin:0 auto;">
-    <h2>Login</h2>
-    <Form :validation-schema="loginSchema" @submit="onSubmit" v-slot="{ errors }">
-      <div class="form-group">
-        <label>Email</label>
-        <Field name="email" class="input" type="email" />
-        <div class="error">{{ errors.email }}</div>
+  <section class="grid" style="gap:16px; max-width:480px; margin-inline:auto;">
+    <div class="card">
+      <h2>Log In</h2>
+      <p class="muted">Welcome back.</p>
+    </div>
+
+    <div class="card">
+      <div class="grid" style="gap:10px;">
+        <label>Email
+          <input class="input" v-model.trim="email" placeholder="you@example.com" />
+        </label>
+        <label>Password
+          <input class="input" type="password" v-model="password" placeholder="Your password" />
+        </label>
+
+        <button class="btn" @click="submit" :disabled="busy">{{ busy ? 'Logging in…' : 'Log In' }}</button>
+        <p v-if="err" style="color:#b91c1c; margin:4px 0 0 0;">{{ err }}</p>
+        <p class="muted" style="margin:8px 0 0 0;">
+          No account? <router-link to="/register">Create one</router-link>.
+        </p>
       </div>
-      <div class="form-group">
-        <label>Password</label>
-        <Field name="password" class="input" type="password" />
-        <div class="error">{{ errors.password }}</div>
-      </div>
-      <div class="row" style="justify-content:space-between;">
-        <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Signing in…' : 'Login' }}</button>
-        <router-link class="btn ghost" to="/register">Need an account?</router-link>
-      </div>
-      <p class="error" v-if="errorMsg">{{ errorMsg }}</p>
-    </Form>
-  </div>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { Form, Field } from 'vee-validate'
-import { loginSchema } from '@/utils/validators'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
-
 const auth = useAuthStore()
 const router = useRouter()
-const loading = ref(false)
-const errorMsg = ref('')
 
-const onSubmit = async (values: any) => {
+const email = ref('')
+const password = ref('')
+const err = ref('')
+const busy = ref(false)
+
+async function submit(){
+  err.value = ''
   try {
-    loading.value = true
-    await new Promise(r => setTimeout(r, 300))
-    auth.login(values.email, values.password)
+    busy.value = true
+    await auth.login({ email: email.value, password: password.value })
     router.push('/dashboard')
   } catch (e: any) {
-    errorMsg.value = e.message || 'Login failed'
+    err.value = e?.message || 'Login failed.'
   } finally {
-    loading.value = false
+    busy.value = false
   }
 }
 </script>

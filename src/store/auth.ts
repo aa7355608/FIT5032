@@ -1,48 +1,92 @@
+// src/store/auth.ts
 import { defineStore } from 'pinia'
-import { auth as fbAuth } from '@/firebase/config'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 
-export type Role = 'user' | 'admin'
-export type User = { id: string; email: string; role: Role }
-type StoredUser = User & { password: string }
+type Role = 'user' | 'admin'
+type StoredUser = { email: string; password: string; name?: string; role: Role; createdAt: number }
+type Session = { email: string; name?: string; role: Role; displayName?: string }
 
+const USERS_KEY = 'users'
+const AUTH_KEY = 'auth_session'
+
+function readUsers(): StoredUser[] {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY) || '[]') } catch { return [] }
+}
+function writeUsers(arr: StoredUser[]) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(arr))
+}
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({ user: null as User | null, token: '' as string }),
-  getters: { isAuthenticated: (s) => !!s.user && !!s.token },
+  state: () => ({
+    isAuthenticated: false,
+    user: null as Session | null,
+  }),
   actions: {
-    async register(email: string, password: string, role: Role = 'user') {
+    hydrate() {
 
-      const users: StoredUser[] = JSON.parse(localStorage.getItem('users') || '[]')
-      if (!users.find(u => u.email === email)) {
-        users.push({ id: email, email, password: '***', role })
-        localStorage.setItem('users', JSON.stringify(users))
-      }
-      await this.login(email, password)
+      if (!localStorage.getItem(USERS_KEY)) writeUsers([])
+      try {
+        const raw = localStorage.getItem(AUTH_KEY)
+        if (raw) {
+          const u = JSON.parse(raw) as Session
+          this.isAuthenticated = true
+          this.user = u
+        }
+      } catch {/* ignore */}
     },
-    async login(email: string, password: string) {
-    
-      const users: StoredUser[] = JSON.parse(localStorage.getItem('users') || '[]')
-      const found = users.find(u => u.email === email) || { role: 'user' }
-      this.user = { id: email, email, role: found.role as Role }
-      this.token = 'firebase-session'
-  
-      localStorage.setItem('session', JSON.stringify({ user: this.user, token: this.token }))
+
+    register(payload: { name: string; email: string; password: string; role?: Role }) {
+      const name = (payload.name || '').trim()
+      const email = (payload.email || '').trim().toLowerCase()
+      const password = (payload.password || '').trim()
+      const role: Role = payload.role || 'user'
+
+      if (!email || !password) throw new Error('Email and password are required.')
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Invalid email format.')
+      if (password.length < 6) throw new Error('Password must be at least 6 characters.')
+
+      const users = readUsers()
+      if (users.some((u) => u.email === email)) throw new Error('Email already registered.')
+
+      users.push({ email, password, name, role, createdAt: Date.now() })
+      writeUsers(users)
+
+
+      const session: Session = { email, name, role, displayName: name || email.split('@')[0] }
+      localStorage.setItem(AUTH_KEY, JSON.stringify(session))
+      this.isAuthenticated = true
+      this.user = session
+
+
+      const pk = `user_profile:${email}`
+      const prof = { ...(JSON.parse(localStorage.getItem(pk) || '{}')), name: name || email.split('@')[0] }
+      localStorage.setItem(pk, JSON.stringify(prof))
     },
-    async logout() {
-    
+
+    login(payload: { email: string; password: string }) {
+      const email = (payload.email || '').trim().toLowerCase()
+      const password = (payload.password || '').trim()
+      const u = readUsers().find((x) => x.email === email && x.password === password)
+      if (!u) throw new Error('Invalid email or password.')
+      const session: Session = { email: u.email, name: u.name, role: u.role || 'user', displayName: u.name || email.split('@')[0] }
+      localStorage.setItem(AUTH_KEY, JSON.stringify(session))
+      this.isAuthenticated = true
+      this.user = session
+    },
+
+    logout() {
+      localStorage.removeItem(AUTH_KEY)
+      this.isAuthenticated = false
       this.user = null
-      this.token = ''
-      localStorage.removeItem('session')
     },
-    restore() {
-      const s = localStorage.getItem('session')
-      if (s) {
-        const { user, token } = JSON.parse(s)
-        this.user = user
-        this.token = token
-      }
+
+
+    updateDisplayName(name: string) {
+      if (!this.user) return
+      this.user.displayName = (name || '').trim() || this.user.email.split('@')[0]
+      localStorage.setItem(AUTH_KEY, JSON.stringify(this.user))
+      const users = readUsers()
+      const u = users.find((x) => x.email === this.user!.email)
+      if (u) { u.name = this.user.displayName!; writeUsers(users) }
     }
   }
 })
-
