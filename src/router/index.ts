@@ -59,10 +59,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
-const router = createRouter({ history: createWebHistory(), routes })
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
 
 router.beforeEach((to) => {
-  const auth = useAuthStore()
+  const auth = useAuthStore()      
+  if (!auth._inited) return true   
+
   if (to.meta.guestOnly && auth.isAuthenticated) return { path: '/dashboard' }
   if (to.meta.requiresAuth && !auth.isAuthenticated) return { path: '/login' }
   if (to.meta.roles) {

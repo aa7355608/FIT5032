@@ -23,8 +23,8 @@
       </article>
       <article class="card kpi">
         <h3>Minutes Practiced</h3>
-        <p class="big">{{ totalMinutes }}</p>
-        <p class="muted small">Avg / session: {{ avgMinutes }}</p>
+        <p class="big">{{ totalDurationPretty }}</p>
+        <p class="muted small">Avg / session: {{ avgPerSessionPretty }}</p>
       </article>
       <article class="card kpi">
         <h3>Favorites</h3>
@@ -123,6 +123,24 @@ const postsCount = posts.length
 const totalSessions = computed(() => sessions.value.length)
 const totalMinutes = computed(() => sessions.value.reduce((a,s)=> a + (s.duration||0), 0))
 const avgMinutes = computed(() => totalSessions.value ? Math.round(totalMinutes.value / totalSessions.value) : 0)
+
+// === 修复分钟显示 ===
+function minutesToHHMM(mins: number): string {
+  const total = Math.max(0, Math.round(mins))
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+const totalDurationPretty = computed(() => minutesToHHMM(totalMinutes.value))
+const avgPerSessionPretty = computed(() => {
+  const n = totalSessions.value
+  if (!n) return '0m'
+  const avg = totalMinutes.value / n
+  const h = Math.floor(avg / 60)
+  const m = Math.round(avg % 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+})
+// =====================
 
 function startOfDay(ts: number){ const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime() }
 const today0 = startOfDay(Date.now())

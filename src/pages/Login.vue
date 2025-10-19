@@ -1,26 +1,44 @@
+<!-- src/pages/Login.vue -->
 <template>
-  <section class="grid" style="gap:16px; max-width:480px; margin-inline:auto;">
-    <div class="card">
-      <h2>Log In</h2>
-      <p class="muted">Welcome back.</p>
-    </div>
+  <section class="card" style="max-width:480px; margin:32px auto;">
+    <h2>Login</h2>
+    <p class="muted">Use your email and password to sign in.</p>
 
-    <div class="card">
-      <div class="grid" style="gap:10px;">
-        <label>Email
-          <input class="input" v-model.trim="email" placeholder="you@example.com" />
-        </label>
-        <label>Password
-          <input class="input" type="password" v-model="password" placeholder="Your password" />
-        </label>
+    <form @submit.prevent="onSubmit" novalidate>
+      <label>
+        Email
+        <input
+          id="email"
+          class="input"
+          type="email"
+          v-model.trim="email"
+          autocomplete="email"
+          required
+        />
+      </label>
 
-        <button class="btn" @click="submit" :disabled="busy">{{ busy ? 'Logging in…' : 'Log In' }}</button>
-        <p v-if="err" style="color:#b91c1c; margin:4px 0 0 0;">{{ err }}</p>
-        <p class="muted" style="margin:8px 0 0 0;">
-          No account? <router-link to="/register">Create one</router-link>.
-        </p>
+      <label style="margin-top:10px;">
+        Password
+        <input
+          id="password"
+          class="input"
+          type="password"
+          v-model="password"
+          autocomplete="current-password"
+          required
+          minlength="6"
+        />
+      </label>
+
+      <p v-if="error" class="error" role="alert" style="margin-top:8px;">{{ error }}</p>
+
+      <div class="row" style="gap:8px; margin-top:16px;">
+        <button class="btn" :disabled="submitting">
+          {{ submitting ? 'Signing in…' : 'Login' }}
+        </button>
+        <RouterLink to="/register" class="btn ghost">Create account</RouterLink>
       </div>
-    </div>
+    </form>
   </section>
 </template>
 
@@ -28,24 +46,45 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
-const auth = useAuthStore()
+
 const router = useRouter()
+const auth = useAuthStore()
 
 const email = ref('')
 const password = ref('')
-const err = ref('')
-const busy = ref(false)
+const error = ref('')
+const submitting = ref(false)
 
-async function submit(){
-  err.value = ''
+function validEmail(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+}
+
+async function onSubmit() {
+  error.value = ''
+  if (!validEmail(email.value)) { error.value = 'Please enter a valid email.'; return }
+  if (!password.value || password.value.length < 6) { error.value = 'Password must be at least 6 characters.'; return }
+
+  submitting.value = true
   try {
-    busy.value = true
     await auth.login({ email: email.value, password: password.value })
+
+    // ✅ 登录成功后跳转 dashboard
     router.push('/dashboard')
+
   } catch (e: any) {
-    err.value = e?.message || 'Login failed.'
+    error.value = e?.message || 'Login failed.'
   } finally {
-    busy.value = false
+    submitting.value = false
   }
 }
 </script>
+
+<style scoped>
+.input { width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; }
+.btn { padding:8px 14px; border-radius:8px; background:#2563eb; color:#fff; }
+.btn.ghost { background:#e2e8f0; color:#111827; text-decoration:none; display:inline-flex; align-items:center; }
+.error { color:#dc2626; }
+.muted { color:#6b7280; }
+.card { padding:16px; border:1px solid #e5e7eb; border-radius:16px; background:#fff; }
+.row { display:flex; align-items:center; }
+</style>
