@@ -6,7 +6,6 @@
       <p class="muted">You’re not alone. Pick what you need right now — immediate support, quick answers, or evidence-based resources.</p>
     </div>
 
-    <!-- 1) Crisis / Emergency -->
     <div class="card" style="border-left: 6px solid #ef4444;">
       <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
         <div>
@@ -50,7 +49,7 @@
       <p class="muted" style="margin-top:10px;">If you’re outside Australia, contact your local emergency number.</p>
     </div>
 
-    <!-- 2) FAQ / Quick Answers -->
+ 
     <div class="card">
       <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap;">
         <h3 style="margin:0;">Quick Answers</h3>

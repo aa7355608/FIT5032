@@ -124,7 +124,7 @@ const totalSessions = computed(() => sessions.value.length)
 const totalMinutes = computed(() => sessions.value.reduce((a,s)=> a + (s.duration||0), 0))
 const avgMinutes = computed(() => totalSessions.value ? Math.round(totalMinutes.value / totalSessions.value) : 0)
 
-// === 修复分钟显示 ===
+
 function minutesToHHMM(mins: number): string {
   const total = Math.max(0, Math.round(mins))
   const h = Math.floor(total / 60)

@@ -1,4 +1,4 @@
-<!-- src/pages/Login.vue -->
+
 <template>
   <section class="card" style="max-width:480px; margin:32px auto;">
     <h2>Login</h2>
@@ -68,7 +68,7 @@ async function onSubmit() {
   try {
     await auth.login({ email: email.value, password: password.value })
 
-    // ✅ 登录成功后跳转 dashboard
+
     router.push('/dashboard')
 
   } catch (e: any) {

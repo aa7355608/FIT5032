@@ -25,7 +25,7 @@
 import SimpleTable from '@/components/SimpleTable.vue'
 import { useReviewsStore } from '@/store/reviews'
 
-// Users from localStorage (demo)
+
 const users = JSON.parse(localStorage.getItem('users') || '[]')
 const userCols = [
   { label: 'Email', field: 'email' },
@@ -33,7 +33,7 @@ const userCols = [
 ]
 const userRows = users.map((u: any) => ({ email: u.email, role: u.role }))
 
-// Reviews from store
+
 const reviews = useReviewsStore()
 const reviewCols = [
   { label: 'Title', field: 'title' },

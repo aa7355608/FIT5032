@@ -104,10 +104,10 @@ async function initMap() {
 
   map.value = new g.maps.Map(document.getElementById('map'), { center: { lat:-37.8136, lng:144.9631 }, zoom: 12 })
   dirService.value = new g.maps.DirectionsService()
-  // 关键：不让 Google 自己画 A/B，避免有“幽灵标记”清不掉
+ 
   dirRenderer.value = new g.maps.DirectionsRenderer({ map: map.value, suppressMarkers: true })
 
-  // 点击逻辑：第一次设 A；之后任何点击只移动 B 并画线
+
   map.value.addListener('click', (e: any) => {
     const ll = e.latLng
     if (!origin.value) {
@@ -120,7 +120,7 @@ async function initMap() {
     }
   })
 
-  // Autocomplete：永远作为 B
+
   acInput.value = document.getElementById('gm-autocomplete') as HTMLInputElement
   const ac = new g.maps.places.Autocomplete(acInput.value, { fields: ['geometry','name'] })
   ac.addListener('place_changed', () => {
@@ -154,7 +154,7 @@ function calcRoute() {
         distance: leg.distance?.text || '',
         duration: leg.duration?.text || ''
       }
-      // 适配视野
+
       const bounds = new g.maps.LatLngBounds()
       res.routes[0].overview_path.forEach((p: any) => bounds.extend(p))
       map.value.fitBounds(bounds, 50)
@@ -163,22 +163,21 @@ function calcRoute() {
 }
 
 function clearAll() {
-  // 1) 清路线
+
   if (dirRenderer.value) dirRenderer.value.setDirections({ routes: [] })
   resetSummary()
 
-  // 2) 移除我们的 A、B 标记（如果存在）
   removeMarker(markerA)
   removeMarker(markerB)
 
-  // 3) 置空 A/B LatLng
+
   origin.value = null
   destination.value = null
 
-  // 4) 清搜索框
+
   if (acInput.value) acInput.value.value = ''
 
-  // 5) 复位地图
+
   centerMel()
 }
 
@@ -186,7 +185,7 @@ function useMyLocation() {
   if (!map.value) return
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      // 重设 A；清空 B 与路线
+
       const g = (window as any).google
       const ll = new g.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
 
@@ -208,7 +207,7 @@ onMounted(async () => {
   try {
     await loadGoogle()
     await initMap()
-  } catch (e) { /* error 已设置 */ }
+  } catch (e) {}
 })
 </script>
 

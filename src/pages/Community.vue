@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <!-- All Posts -->
+
     <div v-if="posts.length===0" class="card">
       <p class="muted" style="margin:0;">No posts yet. Be the first to share something!</p>
     </div>
@@ -37,7 +37,7 @@
         <p style="margin:.25rem 0 0 0;">{{ p.content }}</p>
         <p class="muted small" style="margin-top:6px;">By {{ p.author }}</p>
 
-        <!-- Comments -->
+
         <div v-if="p.comments && p.comments.length" class="card" style="background:#f9fafb; margin-top:8px;">
           <p class="muted small" style="margin:0 0 4px 0;">Comments</p>
           <div v-for="(c,idx) in p.comments" :key="idx" style="border-top:1px solid #e5e7eb; padding-top:4px; margin-top:4px;">
@@ -46,7 +46,6 @@
           </div>
         </div>
 
-        <!-- Add Comment -->
         <div class="row" style="gap:8px; margin-top:10px; flex-wrap:wrap;">
           <input class="input" style="flex:1;" v-model.trim="p.newComment" placeholder="Write a comment..." />
           <button class="btn ghost" @click="addComment(p)">Comment</button>

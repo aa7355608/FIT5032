@@ -1,6 +1,6 @@
 <template>
   <section class="grid" style="gap:16px; max-width:1100px; margin-inline:auto;">
-    <!-- Header -->
+
     <div class="card">
       <h2>Resources Library</h2>
       <p class="muted">
@@ -9,7 +9,7 @@
       </p>
     </div>
 
-    <!-- Controls -->
+
     <div class="card">
       <div class="row" style="gap:12px; flex-wrap:wrap;">
         <label style="min-width:240px;">
@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <!-- Results -->
+
     <div class="grid cards">
       <article
         v-for="r in paged"
@@ -117,14 +117,14 @@
       </div>
     </div>
 
-    <!-- Pagination -->
+
     <div class="row" style="gap:8px; justify-content:flex-end;">
       <button class="btn ghost" @click="prev" :disabled="page===1">Prev</button>
       <span class="muted">Page {{ page }} / {{ totalPages }}</span>
       <button class="btn ghost" @click="next" :disabled="page===totalPages">Next</button>
     </div>
 
-    <!-- Favorites -->
+
     <div class="card" v-if="favItems.length">
       <h3>My Saved Resources ({{ favorites.length }})</h3>
       <div class="grid cards">
@@ -144,7 +144,7 @@
       </div>
     </div>
 
-    <!-- Details Modal -->
+
     <dialog ref="dlg" class="modal">
       <form method="dialog" class="card" style="max-width:720px;">
         <h3 style="margin:0 0 6px 0;">{{ active?.title }}</h3>

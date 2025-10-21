@@ -267,7 +267,7 @@ const lastSessionText = computed(() => sessions.value[0]?.ts ? fmt(sessions.valu
 // favorites
 const favorites = ref<string[]>(readJSON<string[]>('favorites', []))
 
-// ---------- Actions ----------
+
 function save() {
   const auth = useAuthStore()
 
